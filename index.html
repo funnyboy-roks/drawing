@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Draw Test</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+
+            #canvas {
+                width: 100vw;
+                height: 100vh;
+                background: #111;
+            }
+
+            .hide-cursor {
+                cursor: none;
+            }
+
+            label {
+                color: lightgrey;
+            }
+
+            .controls {
+                position: fixed;
+            }
+
+            .pen {
+                width: 2rem;
+                height: 2rem;
+                background: #000a;
+                outline: none;
+                border: 1px solid grey;
+                border-radius: 5px;
+                padding: .1rem;
+                margin: .1rem;
+            }
+
+            .pen svg {
+                width: 2rem;
+                height: 2rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="controls">
+            <input id="colour" type="color" value="#ff0000" />
+            <label for="weight">Weight: <input id="weight" type="range" value="10" min="1" max="30" /></label>
+            <button id="save-pen">Save Pen</button>
+            <button id="mode">Draw</button>
+            <div id="pens"></div>
+        </div>
+        <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+            <circle id="eraser" cx="-500" cy="-500" r="10" stroke="white" fill="#aaaa" />
+            <rect id="select" x="-500" y="-500" width="0" height="0" stroke="white" fill="none" />
+        </svg>
+        <script src="app.js"></script>
+    </body>
+</html>
