@@ -4,15 +4,54 @@ const eraser = document.querySelector('#eraser');
 const colour = document.querySelector('#colour');
 const weight = document.querySelector('#weight');
 const select = document.querySelector('#select');
+const rotate = document.querySelector('#rotate');
 const savePen = document.querySelector('#save-pen');
 const modeToggle = document.querySelector('#mode');
 const pens = document.querySelector('#pens');
 
 let mode = 'draw';
 
+let currPath = null;
+let selected = null;
+let rotating = false;
+let rotrad = 0; // rotation radians
+
 const distSq = ([ax, ay], [bx, by]) => (ax - bx) ** 2 + (ay - by) ** 2;
 
 const savedPens = JSON.parse(localStorage.getItem('savedPens') || '[]');
+
+const resetSelected = () => {
+    selected = null;
+    rotating = false;
+    rotrad = prevrotrad = 0;
+    select.setAttribute('x', -500);
+    select.setAttribute('y', -500);
+    select.setAttribute('width', 0);
+    select.setAttribute('height', 0);
+    rotate.setAttribute('transform', 'translate(-500, -500)');
+};
+
+const updateSelected = (updateBound = true) => {
+    const rect = selected.getBoundingClientRect();
+    if (updateBound) {
+        select.setAttribute('x', rect.x);
+        select.setAttribute('y', rect.y);
+        select.setAttribute('width', rect.width);
+        select.setAttribute('height', rect.height);
+        rotate.setAttribute('transform', `translate(${rect.x + rect.width / 2}, ${rect.y})`);
+    }
+    rotate.parentElement.setAttribute('transform', `rotate(${rotrad * 180 / Math.PI} ${rect.x + rect.width / 2} ${rect.y + rect.height / 2})`);
+};
+
+// We seem to be creating many empty lines, and rather than actually deal with them, let's just sweep it under the rug
+const cleanupLines = () => {
+    canvas.querySelectorAll('polyline').forEach(l => {
+        if (!l.getAttribute('points')?.length) {
+            l.remove();
+        }
+    });
+};
+setInterval(cleanupLines, 5000);
 
 const renderSavedPens = () => {
     [...pens.children].forEach(c => c.remove());
@@ -79,8 +118,6 @@ const createPolyLine = (col = colour.value, w = weight.value) => {
     return line;
 }
 
-let currPath = null;
-let selected = null;
 canvas.addEventListener('mousedown', (event) => {
     const curr = [event.clientX, event.clientY];
     prev = curr;
@@ -99,15 +136,17 @@ canvas.addEventListener('mousedown', (event) => {
         }
     } else if (mode === 'select') {
         if (event.buttons === 1 && event.target !== canvas) {
-            selected = event.target;
-            const rect = event.target.getBoundingClientRect();
-            select.setAttribute('x', rect.x);
-            select.setAttribute('y', rect.y);
-            select.setAttribute('width', rect.width);
-            select.setAttribute('height', rect.height);
+            if (event.target.tagName === 'polyline') {
+                resetSelected();
+                selected = event.target;
+                updateSelected();
+            } else if (event.target.tagName === 'circle' && event.target.parentElement.id === 'rotate') {
+                rotating = true;
+            } else {
+                resetSelected();
+            }
         }
     }
-
     prevButtons = event.buttons;
 
     console.log('mousedown', event);
@@ -125,15 +164,12 @@ canvas.addEventListener('mouseup', (event) => {
         canvas.classList.remove('hide-cursor');
     } else if (mode === 'select') {
         if (event.target === canvas) {
-            selected = null;
-            select.setAttribute('x', -500);
-            select.setAttribute('y', -500);
-            select.setAttribute('width', 0);
-            select.setAttribute('height', 0);
+            resetSelected();
         }
     }
     currPath = null;
     prev = null;
+    rotating = false;
     console.log('mouseup', event);
 
     eraser.setAttribute('cx', -500);
@@ -141,6 +177,7 @@ canvas.addEventListener('mouseup', (event) => {
 });
 
 let prev = null;
+let prevrotrad = 0;
 canvas.addEventListener('mousemove', (event) => {
     if (!event.buttons || !prev) return;
     //console.log('mousemove', event);
@@ -228,7 +265,41 @@ canvas.addEventListener('mousemove', (event) => {
             }
         }
     } else if (mode === 'select') {
-        if (selected !== null) {
+        if (rotating) {
+            const rect = selected.getBoundingClientRect();
+            const mid = [rect.x + rect.width / 2, rect.y + rect.height / 2];
+            let vec = [mid[0] - curr[0], mid[1] - curr[1]]; // vec from centre to mouse
+            let mag = Math.sqrt(vec[0] ** 2 + vec[1] ** 2); // |vec|
+            rotrad = Math.acos(vec[1] / mag);
+            if (curr[0] < mid[0]) {
+                rotrad *= -1;
+            }
+
+            const SNAPS = [0, Math.PI / 2, -Math.PI / 2, Math.PI, -Math.PI];
+            if (!event.shiftKey) {
+                for (const snap of SNAPS) {
+                    if (Math.abs(rotrad - snap) <= .1) {
+                        rotrad = snap;
+                        break;
+                    }
+                }
+            }
+
+            const drotrad = prevrotrad - rotrad;
+            const cosphi = Math.cos(-drotrad);
+            const sinphi = Math.sin(-drotrad);
+            const points = selected.getAttribute('points').split(' ');
+            selected.setAttribute('points', points.map(p => {
+                let [x, y] = p.split(',').map(Number);
+                const qx = mid[0] + cosphi * (x - mid[0]) - sinphi * (y - mid[1])
+                const qy = mid[1] + sinphi * (x - mid[0]) + cosphi * (y - mid[1])
+                return `${qx},${qy}`
+            }).join(' '));
+            updateSelected(false);
+            prev = curr;
+            prevrotrad = rotrad;
+
+        } else if (selected !== null) {
             const points = selected.getAttribute('points').split(' ');
             const [ dx, dy ] = [curr[0] - prev[0], curr[1] - prev[1]];
 
@@ -241,11 +312,7 @@ canvas.addEventListener('mousemove', (event) => {
 
             selected.setAttribute('points', newpts.join(' '));
 
-            const rect = selected.getBoundingClientRect();
-            select.setAttribute('x', rect.x);
-            select.setAttribute('y', rect.y);
-            select.setAttribute('width', rect.width);
-            select.setAttribute('height', rect.height);
+            updateSelected();
 
             prev = curr;
         }

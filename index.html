@@ -43,6 +43,10 @@
                 width: 2rem;
                 height: 2rem;
             }
+
+            #rotate circle {
+                cursor: ew-resize;
+            }
         </style>
     </head>
     <body>
@@ -55,7 +59,14 @@
         </div>
         <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
             <circle id="eraser" cx="-500" cy="-500" r="10" stroke="white" fill="#aaaa" />
-            <rect id="select" x="-500" y="-500" width="0" height="0" stroke="white" fill="none" />
+            <g>
+                <rect id="select" x="-500" y="-500" width="0" height="0" stroke="white" fill="none" />
+                <g id="rotate" transform="translate(-500, -500)" stroke="lightgrey" fill="#aaaa">
+                    <circle cx="0" cy="-20" r="5" />
+                    <line x1="0" y1="-15" x2="0" y2="0" />
+                </g>
+            </g>
+
         </svg>
         <script src="app.js"></script>
     </body>
